@@ -1,5 +1,5 @@
 # ==================================
-# MeloDetect App (UI Ditingkatkan - FINAL FIX SIDEBAR)
+#          MeloDetect App 
 # ==================================
 
 import streamlit as st
@@ -121,7 +121,7 @@ html, body, [class*="css"], div, span, input, textarea, button, select, label, p
 """, unsafe_allow_html=True)
 
 # ==================================
-# FUNGSI-FUNGSI LOGIKA UTAMA (Tidak Berubah)
+# FUNGSI-FUNGSI LOGIKA UTAMA 
 # ==================================
 
 def preprocess_text(text):
@@ -164,7 +164,7 @@ def recommend_similar_songs(song_title, dataframe, matrix, top_n=5):
         return pd.DataFrame()
 
 # ==================================
-# MEMUAT & MEMPROSES DATA (dengan caching)
+# MEMUAT & MEMPROSES DATA 
 # ==================================
 
 @st.cache_resource
