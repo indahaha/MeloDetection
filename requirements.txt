@@ -5,3 +5,4 @@ scikit-learn
 SpeechRecognition
 wordcloud
 matplotlib
+pyaudio
