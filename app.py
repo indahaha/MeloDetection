@@ -1,5 +1,5 @@
 # ==================================
-#          MeloDetect App 
+# MeloDetect App (UI Ditingkatkan - FINAL FIX SIDEBAR)
 # ==================================
 
 import streamlit as st
@@ -42,23 +42,22 @@ st.markdown("""
         --card-bg: #FFFFFF;
     }
 
-    /* Global Styles - Gunakan Poppins dengan ukuran lebih kecil */
-    html, body, [class*="css"], div, span, input, textarea, button, select, label, p {
-        font-family: 'Poppins', sans-serif !important;
-        font-weight: inherit;
-        font-size: 0.9em !important;   /* semua font diperkecil */
-        color: inherit;
-    }
+    /* Global Styles - Gunakan Poppins tanpa merusak styling lain */
+html, body, [class*="css"], div, span, input, textarea, button, select, label, p, h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', sans-serif !important;
+    font-weight: inherit;   /* biar tetap pakai ketebalan bawaan */
+    font-size: inherit;     /* biar ukuran bawaan Streamlit tidak rusak */
+    color: inherit;         /* pakai warna bawaan, tidak dipaksa */
+}
 
+
+    /* Judul Utama */
     h1 {
-        color: var(--primary-color);
+        color: var(--primary-color); /* merah bata */
         text-align: center;
-        font-weight: 700;
-        font-size: 2.2em !important; /* lebih kecil */
+        font-weight: 800;
+        font-size: 3.5em !important; /* lebih besar */
     }
-    h2 { font-size: 1.6em !important; }
-    h3 { font-size: 1.3em !important; }
-    h4, h5, h6 { font-size: 1.1em !important; }
 
     /* Sidebar */
     section[data-testid="stSidebar"] {
@@ -74,36 +73,34 @@ st.markdown("""
     /* Metric Cards */
     .metric-card {
         background: var(--card-bg);
-        padding: 12px;
-        border-radius: 12px;
+        padding: 15px;
+        border-radius: 15px;
         text-align: center;
-        box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
         transition: 0.3s ease-in-out;
-        font-size: 0.85em !important; /* kecilkan isi metric */
     }
     .metric-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 4px 4px 10px rgba(0,0,0,0.15);
+        transform: translateY(-5px);
+        box-shadow: 4px 4px 12px rgba(0,0,0,0.15);
     }
 
     /* Tabs */
     .stTabs [role="tablist"] {
-        gap: 8px;
-        justify-content: center !important;
+        gap: 10px;
+        justify-content: center !important; /* biar rata tengah */
         display: flex !important;
-    }
+            
     .stTabs [role="tab"] {
         background-color: #eee;
-        padding: 6px 12px;
-        border-radius: 8px;
+        padding: 8px 16px;
+        border-radius: 10px;
         color: #3B060A;
         font-weight: 500;
-        font-size: 0.9em !important;
     }
     .stTabs [role="tab"][aria-selected="true"] {
         background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
         color: white !important;
-        font-weight: 600;
+        font-weight: bold;
     }
 
     /* Buttons */
@@ -111,22 +108,20 @@ st.markdown("""
         background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
         color: white;
         border: none;
-        border-radius: 8px;
-        padding: 0.5em 1em;
-        font-size: 0.9em !important;
+        border-radius: 10px;
+        padding: 0.6em 1.2em;
         font-weight: bold;
         transition: 0.3s;
     }
     .stButton>button:hover {
         transform: scale(1.05);
-        box-shadow: 0px 3px 8px rgba(0,0,0,0.3);
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
     }
 </style>
 """, unsafe_allow_html=True)
 
-
 # ==================================
-# FUNGSI-FUNGSI LOGIKA UTAMA 
+# FUNGSI-FUNGSI LOGIKA UTAMA (Tidak Berubah)
 # ==================================
 
 def preprocess_text(text):
@@ -169,7 +164,7 @@ def recommend_similar_songs(song_title, dataframe, matrix, top_n=5):
         return pd.DataFrame()
 
 # ==================================
-# MEMUAT & MEMPROSES DATA 
+# MEMUAT & MEMPROSES DATA (dengan caching)
 # ==================================
 
 @st.cache_resource
