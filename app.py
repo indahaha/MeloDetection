@@ -12,6 +12,56 @@ from sklearn.metrics.pairwise import cosine_similarity
 import speech_recognition as sr
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
+import av
+import io
+
+# ==================================
+# KELAS UNTUK PROSESOR AUDIO WEBRTC
+# ==================================
+
+class WhisperAudioProcessor(AudioProcessorBase):
+    def __init__(self, model_size: str):
+        self.model_size = model_size
+        self.audio_frames = []
+        self.r = sr.Recognizer()
+
+    def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
+        # Kumpulkan semua frame audio yang masuk ke dalam list
+        self.audio_frames.append(frame)
+        return frame
+
+    def process_and_transcribe(self) -> str:
+        if not self.audio_frames:
+            return "Tidak ada audio yang direkam."
+
+        # Gabungkan semua frame audio menjadi satu segmen audio yang utuh
+        # Ini dilakukan dengan menuliskannya ke buffer memori dalam format WAV
+        with io.BytesIO() as wav_buffer:
+            with av.open(wav_buffer, mode='w', format='wav') as container:
+                stream = container.add_stream('pcm_s16le', layout='mono', rate=16000)
+                for frame in self.audio_frames:
+                    for packet in stream.encode(frame):
+                        container.mux(packet)
+            
+            # Kembali ke awal buffer untuk dibaca oleh speech_recognition
+            wav_buffer.seek(0)
+            
+            # Gunakan buffer audio ini seolah-olah itu adalah file
+            with sr.AudioFile(wav_buffer) as source:
+                audio_data = self.r.record(source)
+            
+            # Transkripsi menggunakan metode whisper yang sudah ada di kode Anda
+            try:
+                text = self.r.recognize_whisper(audio_data, language="id", model=self.model_size)
+                return text
+            except sr.UnknownValueError:
+                return "Tidak dapat memahami audio."
+            except sr.RequestError as e:
+                return f"Whisper error: {e}"
+            finally:
+                # Kosongkan buffer frame setelah diproses
+                self.audio_frames.clear()
 
 # ==================================
 # KONFIGURASI HALAMAN & GAYA (CSS)
@@ -43,20 +93,19 @@ st.markdown("""
     }
 
     /* Global Styles - Gunakan Poppins tanpa merusak styling lain */
-html, body, [class*="css"], div, span, input, textarea, button, select, label, p, h1, h2, h3, h4, h5, h6 {
-    font-family: 'Poppins', sans-serif !important;
-    font-weight: inherit;   /* biar tetap pakai ketebalan bawaan */
-    font-size: inherit;     /* biar ukuran bawaan Streamlit tidak rusak */
-    color: inherit;         /* pakai warna bawaan, tidak dipaksa */
-}
-
+    html, body, [class*="css"], div, span, input, textarea, button, select, label, p, h1, h2, h3, h4, h5, h6 {
+        font-family: 'Poppins', sans-serif !important;
+        font-weight: inherit;
+        font-size: inherit;
+        color: inherit;
+    }
 
     /* Judul Utama */
     h1 {
-        color: var(--primary-color); /* merah bata */
+        color: var(--primary-color);
         text-align: center;
         font-weight: 800;
-        font-size: 3.5em !important; /* lebih besar */
+        font-size: 3.5em !important;
     }
 
     /* Sidebar */
@@ -87,9 +136,9 @@ html, body, [class*="css"], div, span, input, textarea, button, select, label, p
     /* Tabs */
     .stTabs [role="tablist"] {
         gap: 10px;
-        justify-content: center !important; /* biar rata tengah */
+        justify-content: center !important;
         display: flex !important;
-            
+    }
     .stTabs [role="tab"] {
         background-color: #eee;
         padding: 8px 16px;
@@ -314,48 +363,42 @@ with tab_find:
     find_tab1, find_tab2 = st.tabs(["🎤 **Dari Suara Anda**", "📝 **Dari Ketikan Lirik**"])
 
     with find_tab1:
-        st.info("Untuk hasil terbaik, bernyanyilah dengan jelas selama 10-15 detik di lingkungan yang tidak bising.", icon="💡")
-        col1, col2 = st.columns(2)
-        with col1:
-            recording_duration = st.slider("Durasi rekaman (detik):", 5, 30, 15, 1, key="slider_voice")
-        with col2:
-            model_options = { "Dasar": "base", "Kecil": "small", "Menengah": "medium" }
-            display_options = list(model_options.keys())
-            selected_display_model = st.selectbox(
-                "Model pengenalan suara:", options=display_options, index=1,
-                key="model_voice", help="Model 'Dasar' atau 'Kecil' lebih cepat, 'Menengah' lebih akurat."
-            )
-            selected_model = model_options[selected_display_model]
+        st.info("Tekan START untuk mulai merekam, bicaralah, lalu tekan STOP. Hasil akan diproses setelah Anda menekan STOP.", icon="💡")
         
-        if st.button("🔴 Mulai Merekam & Deteksi", use_container_width=True, type="primary"):
-            r = sr.Recognizer()
-            with sr.Microphone() as source:
-                st.info("Menyesuaikan dengan suara sekitar...", icon="🤫")
-                try: 
-                    r.adjust_for_ambient_noise(source, duration=1)
-                except Exception as e: 
-                    st.warning(f"Gagal menyesuaikan noise: {e}")
+        # Opsi model tetap sama seperti kode Anda
+        model_options = { "Dasar": "base", "Kecil": "small", "Menengah": "medium" }
+        display_options = list(model_options.keys())
+        selected_display_model = st.selectbox(
+            "Pilih model pengenalan suara:", options=display_options, index=1,
+            key="model_voice_webrtc", help="Model 'Dasar' atau 'Kecil' lebih cepat, 'Menengah' lebih akurat."
+        )
+        selected_model = model_options[selected_display_model]
 
-                st.info(f"Mendengarkan selama {recording_duration} detik...", icon="🎧")
-                try:
-                    audio = r.record(source, duration=recording_duration)
-                    st.success("Rekaman selesai, memproses audio...", icon="✅")
-                    
-                    with st.spinner(f"Menerjemahkan suara menjadi teks (Model: {selected_display_model})..."):
-                        text = r.recognize_whisper(audio, language="id", model=selected_model)
-                    
-                    st.info(f"**Lirik Terdeteksi:** *'{text}'*")
-                    if text:
+        # Jalankan komponen WebRTC
+        webrtc_ctx = webrtc_streamer(
+            key="speech-to-text",
+            mode=WebRtcMode.SENDONLY,
+            audio_processor_factory=lambda: WhisperAudioProcessor(model_size=selected_model),
+            media_stream_constraints={"video": False, "audio": True},
+        )
+
+        # Logika untuk memproses setelah perekaman selesai
+        if not webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
+            audio_processor = webrtc_ctx.audio_processor
+            if audio_processor and audio_processor.audio_frames:
+                with st.spinner(f"Menerjemahkan suara menjadi teks (Model: {selected_display_model})..."):
+                    text = audio_processor.process_and_transcribe()
+
+                    if text and "Tidak dapat" not in text and "error" not in text:
+                        st.info(f"**Lirik Terdeteksi:** *'{text}'*")
                         with st.spinner('Mencocokkan lirik dengan database...'):
                             found_song, score = find_song(text, tfidf_vectorizer, tfidf_matrix, df)
+                        
                         st.session_state.found_song = found_song
                         st.session_state.score = score
+                        st.rerun() 
                     else:
-                        st.warning("Tidak ada lirik yang terdeteksi. Coba lagi.")
-                except sr.UnknownValueError:
-                    st.error("Tidak dapat memahami audio. Coba nyanyikan lebih jelas.")
-                except Exception as e:
-                    st.error(f"Terjadi kesalahan saat rekaman: {e}")
+                        st.warning(text)
 
     with find_tab2:
         lyric_input = st.text_input("Ketikkan sepenggal lirik:", placeholder="contoh: ketika mimpimu yang begitu indah", label_visibility="collapsed")
@@ -393,8 +436,10 @@ with tab_find:
             st.subheader("Rekomendasi Lagu Lain yang Mirip:")
             similar_songs = recommend_similar_songs(song_details['title'], df, tfidf_matrix)
             if not similar_songs.empty:
-                cols = st.columns(len(similar_songs))
-                for idx, (_, row) in enumerate(similar_songs.iterrows()):
+                # Menampilkan maksimal 5 rekomendasi
+                num_recommendations = min(len(similar_songs), 5)
+                cols = st.columns(num_recommendations)
+                for idx, (_, row) in enumerate(similar_songs.head(num_recommendations).iterrows()):
                     with cols[idx]:
                         with st.container(border=True):
                            st.markdown(f"**{row['title']}**")
@@ -404,6 +449,7 @@ with tab_find:
         else:
             st.error("Maaf, lagu tidak ditemukan. Coba lagi dengan lirik yang lebih jelas atau berbeda.", icon="😕")
         
+        # Hapus state setelah ditampilkan untuk pencarian berikutnya
         del st.session_state['found_song']
         del st.session_state['score']
 
