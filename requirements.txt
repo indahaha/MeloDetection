@@ -5,4 +5,5 @@ scikit-learn
 SpeechRecognition
 wordcloud
 matplotlib
-pyaudio
+pyaudio==0.2.14
+
